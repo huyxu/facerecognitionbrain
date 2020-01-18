@@ -7,7 +7,7 @@ const Register = ({ loadUser, onRouteChange }) => {
     <Formik
       initialValues={{ name: '', email: '', password: '', isValid: true }}
       onSubmit={(values, { setValues }) => {
-        fetch('http://localhost:3001/register', {
+        fetch('https://mysterious-stream-69304.herokuapp.com/register', {
           method: 'post',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
