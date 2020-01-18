@@ -1,18 +1,13 @@
 import React, { Component, Fragment } from 'react';
 import Particles from 'react-particles-js';
-import Clarifai from 'clarifai';
-import Logo from './components/Logo/Logo';
-import Navigation from './components/Navigation/Navigation';
-import Signin from './components/Signin/Signin';
-import Register from './components/Register/Register';
-import Rank from './components/Rank/Rank';
-import ImageLinkForm from './components/ImageLinkForm/ImageLinkForm.js';
-import FaceRecognition from './components/FaceRecognition/FaceRecognition';
+import Logo from '../components/Logo/Logo';
+import Navigation from '../components/Navigation/Navigation';
+import Signin from '../components/Signin/Signin';
+import Register from '../components/Register/Register';
+import Rank from '../components/Rank/Rank';
+import ImageLinkForm from '../components/ImageLinkForm/ImageLinkForm.js';
+import FaceRecognition from '../components/FaceRecognition/FaceRecognition';
 import './App.css';
-
-const app = new Clarifai.App({
-	apiKey: '1581297cc57749d4b3e876f561b36fda'
-});
 
 const particlesOptions = {
 	"particles": {
@@ -125,23 +120,25 @@ const particlesOptions = {
 	"retina_detect": true
 }
 
+const initialState = {
+	input: '',
+	imageUrl: '',
+	boxes: [],
+	route: 'signin',
+	isSignedIn: false,
+	user: {
+		id: '',
+		name: '',
+		email: '',
+		entries: 0,
+		joined: ''
+	}
+}
+
 class App extends Component {
 	constructor() {
 		super();
-		this.state = {
-			input: '',
-			imageUrl: '',
-			box: [],
-			route: 'signin',
-			isSignedIn: false,
-			user: {
-				id: '',
-				name: '',
-				email: '',
-				entries: 0,
-				joined: ''
-			}
-		}
+		this.state = initialState;
 	}
 
 	loadUser = (data) => {
@@ -155,21 +152,24 @@ class App extends Component {
 	}
 
 	calculateFaceLocation = (data) => {
-		const clarifaiFace = data.outputs[0].data.regions[0].region_info.bounding_box;
+		const detectedFaces = data.outputs[0].data.regions.map(value => value.region_info.bounding_box);
 		const image = document.getElementById('inputImage');
 		const width = Number(image.width);
 		const height = Number(image.height);
 
-		return {
-			leftCol: clarifaiFace.left_col * width,
-			topRow: clarifaiFace.top_row * height,
-			rightCol: width - (clarifaiFace.right_col * width),
-			bottomRow: height - (clarifaiFace.bottom_row * height)
-		}
+		const boxes = detectedFaces.map(value => {
+			return {
+				leftCol: value.left_col * width,
+				topRow: value.top_row * height,
+				rightCol: width - (value.right_col * width),
+				bottomRow: height - (value.bottom_row * height)
+			}
+		});
+		return boxes;
 	}
 
-	displayFaceBox = (box) => {
-		this.setState({ box: box });
+	displayFaceboxes = (boxes) => {
+		this.setState({ boxes: boxes });
 	}
 
 	onInputChange = (event) => {
@@ -178,29 +178,37 @@ class App extends Component {
 
 	onPictureSubmit = () => {
 		this.setState({ imageUrl: this.state.input });
-		app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input)
-			.then(response => {
-				if (response) {
-					fetch('http://localhost:3001/image', {
-						method: 'put',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							id: this.state.user.id
-						})
-					})
-					.then(response => response.json())
-					.then(count => {
-						this.setState(Object.assign(this.state.user, { entries: count }));
-					});
-				}
-				this.displayFaceBox(this.calculateFaceLocation(response));
+		fetch('http://localhost:3001/imageurl', {
+			method: 'post',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				input: this.state.input
 			})
-			.catch(err => console.log(err));
+		})
+		.then(response => response.json())
+		.then(response => {
+			if (response) {
+				fetch('http://localhost:3001/image', {
+					method: 'put',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						id: this.state.user.id
+					})
+				})
+				.then(response => response.json())
+				.then(count => {
+					this.setState(Object.assign(this.state.user, { entries: count }));
+				})
+				.catch(console.log);
+			}
+			this.displayFaceboxes(this.calculateFaceLocation(response));
+		})
+		.catch(err => console.log(err));
 	}
 
 	onRouteChange = (route) => {
 		if (route === 'signout') {
-			this.setState({ isSignedIn: false });
+			this.setState(initialState);
 		} else if (route === 'home') {
 			this.setState({ isSignedIn: true });
 		}
@@ -208,7 +216,7 @@ class App extends Component {
 	}
 
 	render() {
-		const { route, isSignedIn, box, imageUrl, user } = this.state;
+		const { route, isSignedIn, boxes, imageUrl, user } = this.state;
 
 		return (
 			<div className="App">
@@ -219,7 +227,7 @@ class App extends Component {
 						<Logo />
 						<Rank name={user.name} entries={user.entries} />
 						<ImageLinkForm onInputChange={this.onInputChange} onPictureSubmit={this.onPictureSubmit} />
-						<FaceRecognition box={box} imageUrl={imageUrl} />
+						<FaceRecognition boxes={boxes} imageUrl={imageUrl} />
 					</Fragment>
 					:(route === 'register' 
 						?<Register loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
