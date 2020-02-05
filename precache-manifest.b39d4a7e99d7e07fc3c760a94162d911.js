@@ -1,6 +1,6 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "72055febca817caf680cd07c9fa1fb8e",
+    "revision": "606c7c66b7b6fd2af3bc460c384673fe",
     "url": "/face-recognition-brain/index.html"
   },
   {
